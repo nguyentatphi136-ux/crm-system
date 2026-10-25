@@ -1,0 +1,24 @@
+# 1. Bỏ qua dữ liệu cơ sở dữ liệu
+pgdata/
+crm_pgdata/
+
+# 2. Bỏ qua file biến môi trường bảo mật
+.env
+*.env
+.env.*
+!.env.example
+
+# 3. Bỏ qua thư viện mã nguồn
+node_modules/
+package-lock.json.bak
+
+# 4. Bỏ qua log và temporary files
+logs/
+*.log
+npm-debug.log*
+
+# 5. Bỏ qua cấu hình IDE và tệp tạm
+.vscode/
+.idea/
+.vs/
+.*stage*

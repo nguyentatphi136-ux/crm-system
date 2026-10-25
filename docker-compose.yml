@@ -1,0 +1,99 @@
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: crm_db
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    volumes:
+      - crm_pgdata:/var/lib/postgresql/data
+      - ./db_init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - backend_net
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: crm_pgadmin
+    restart: always
+    ports:
+      - "8086:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
+      PGADMIN_LISTEN_PORT: 80
+    depends_on:
+      db:
+        condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - backend_net
+
+  backend:
+    build:
+      context: ./backend
+    container_name: crm_backend
+    restart: always
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME}
+      PORT: 5000
+      JWT_SECRET: ${JWT_SECRET}
+      PASSWORD_SALT: ${PASSWORD_SALT}
+    depends_on:
+      db:
+        condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - backend_net
+      - frontend_net
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: crm_frontend
+    restart: always
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ./frontend:/usr/share/nginx/html:ro
+    networks:
+      - frontend_net
+
+  reverse-proxy:
+    image: nginx:latest
+    container_name: crm_proxy
+    restart: always
+    ports:
+      - "8088:80"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - frontend
+      - backend
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - frontend_net
+
+networks:
+  frontend_net:
+    driver: bridge
+  backend_net:
+    driver: bridge
+
+volumes:
+  crm_pgdata:
