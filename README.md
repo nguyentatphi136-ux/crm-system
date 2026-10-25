@@ -1,7 +1,7 @@
 # Hệ Thống CRM Chăm Sóc Khách Hàng (Customer Support CRM)
 **Học phần:** Triển khai và Quản trị Hệ thống Phần mềm  
 **Đề tài:** Đề 4 — Hệ thống CRM Chăm sóc Khách hàng  
-**Giai đoạn:** Giai đoạn 1 — Web App CRM + CSDL PostgreSQL + Nginx Reverse Proxy  
+**Giai đoạn:** Giai đoạn 2 — Tích hợp Hệ thống Giám sát Prometheus & Grafana  
 
 ---
 
@@ -10,35 +10,38 @@ Hệ thống **Nexus CRM** là giải pháp tiếp nhận, phân loại và qu�
 - **Tiếp nhận & Phân loại Ticket:** Quản lý quy trình `open` → `in_progress` → `resolved` → `closed`.
 - **Tự động hóa SLA:** Cam kết thời hạn chất lượng dịch vụ theo 4 mức ưu tiên (Khẩn cấp: 4h, Cao: 8h, Trung bình: 24h, Thấp: 48h).
 - **Hồ sơ Khách hàng (Customer 360):** Quản lý tập trung thông tin đối tác và lịch sử tương tác.
-- **Lịch sử kiểm toán (Audit Trail):** Ghi nhận chi tiết mọi thay đổi trên từng ticket.
-- **Phân quyền theo vai trò (RBAC):** Khách hàng vãng lai, Nhân viên CSKH (`agent`), Quản trị viên (`admin`).
-- **Bảo mật cổng vào:** Nginx Reverse Proxy trang bị 7 HTTP Security Headers, ẩn `server_tokens` và backend technology.
+- **Giám sát thời gian thực:** Thu thập metrics hệ thống, container, web server, CSDL và các chỉ số nghiệp vụ ticket theo chu kỳ 15s.
 
 ---
 
-## 2. Kiến trúc Giai đoạn 1 (5 Dịch vụ cốt lõi)
-1. **`crm_proxy` (Nginx Reverse Proxy):** Tiếp nhận toàn bộ lưu lượng cổng 8088, chuyển hướng traffic vào Frontend và Backend API.
+## 2. Kiến trúc Giai đoạn 2 (10 Dịch vụ)
+1. **`crm_proxy` (Nginx Reverse Proxy):** Tiếp nhận toàn bộ lưu lượng cổng 8088, trang bị 7 HTTP Security Headers.
 2. **`crm_frontend` (SPA Web Dashboard):** Giao diện người dùng hiện đại, tối ưu trải nghiệm chăm sóc khách hàng.
-3. **`crm_backend` (Node.js RESTful API):** Xử lý nghiệp vụ CRM, JWT authentication, kiểm toán ticket, non-root user `node`.
-4. **`crm_db` (PostgreSQL 15 Alpine):** CSDL quan hệ lưu trữ khách hàng, người dùng, chính sách SLA, tickets và nhật ký.
-5. **`crm_pgadmin` (pgAdmin 4):** Giao diện trực quan quản trị CSDL qua cổng 8086.
+3. **`crm_backend` (Node.js RESTful API):** Xử lý nghiệp vụ CRM, JWT authentication, non-root user `node`.
+4. **`crm_db` (PostgreSQL 15 Alpine):** CSDL quan hệ lưu trữ dữ liệu CRM.
+5. **`crm_pgadmin` (pgAdmin 4):** Quản trị CSDL trực quan trên nền web.
+6. **`crm_prometheus` (Prometheus):** Thu thập dữ liệu chỉ số từ 5 targets (Backend API, PostgreSQL, Nginx, cAdvisor, Prometheus).
+7. **`crm_grafana` (Grafana):** Hệ thống trực quan hóa với 4 Dashboards cấu hình tự động (Provisioning).
+8. **`crm_postgres_exporter`:** Thu thập chỉ số kết nối, cache hit ratio, transactions của CSDL PostgreSQL.
+9. **`crm_nginx_exporter`:** Thu thập chỉ số request, active connections từ endpoint `/stub_status`.
+10. **`crm_cadvisor`:** Giám sát tài nguyên phần cứng (CPU, RAM, Network I/O) của tất cả containers.
 
 ---
 
-## 3. Hướng dẫn cài đặt & Khởi chạy Giai đoạn 1
+## 3. Danh sách 4 Dashboards Grafana tự động nạp sẵn
+Truy cập [http://localhost:3000](http://localhost:3000) (User: `admin` / Password: `${GF_SECURITY_ADMIN_PASSWORD}`):
+1. **CRM Business & Ticket SLA Metrics:** Biểu đồ donut trạng thái ticket, mức độ ưu tiên, QPS và vi phạm SLA.
+2. **PostgreSQL Database Overview:** Active connections, Buffer cache hit ratio, commit rate, kích thước CSDL.
+3. **Nginx Web Server Metrics:** QPS, active connections, trạng thái đọc/ghi/chờ của Nginx.
+4. **Cadvisor exporter:** CPU, RAM, Network I/O của toàn bộ 10 container.
+
+---
+
+## 4. Hướng dẫn khởi chạy Giai đoạn 2
 ```bash
-# 1. Tạo tệp cấu hình môi trường từ mẫu
-cp .env.example .env
+# Khởi chạy toàn bộ 10 dịch vụ bằng file compose mở rộng
+docker compose -f docker-compose.yml -f docker-compose.monitoring.yml up -d
 
-# 2. Khởi chạy 5 dịch vụ cốt lõi
-docker compose up -d
-
-# 3. Kiểm tra trạng thái các container
+# Kiểm tra trạng thái các container
 docker compose ps
 ```
-
-- **Giao diện Web CRM:** [http://localhost:8088](http://localhost:8088)
-- **Quản trị pgAdmin 4:** [http://localhost:8086](http://localhost:8086)
-- **Tài khoản Demo CSKH:**
-  - `admin` / `Admin@123` (Quản trị viên)
-  - `agent01` / `Agent@123` (Nhân viên CSKH)
