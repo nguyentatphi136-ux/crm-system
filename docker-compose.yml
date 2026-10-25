@@ -172,6 +172,36 @@ services:
     networks:
       - frontend_net
 
+  loki:
+    image: grafana/loki:2.9.0
+    container_name: crm_loki
+    restart: always
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./loki/loki-config.yaml:/etc/loki/local-config.yaml:ro
+    command: -config.file=/etc/loki/local-config.yaml
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - frontend_net
+
+  promtail:
+    image: grafana/promtail:2.9.0
+    container_name: crm_promtail
+    restart: always
+    volumes:
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./promtail/promtail-config.yaml:/etc/promtail/config.yml:ro
+    command: -config.file=/etc/promtail/config.yml
+    depends_on:
+      - loki
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - frontend_net
+
 networks:
   frontend_net:
     driver: bridge

@@ -1,0 +1,34 @@
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  - job_name: crm_containers
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 5s
+    relabel_configs:
+      # Lọc: Chỉ thu thập log của các container bắt đầu bằng /crm_
+      - source_labels: ['__meta_docker_container_name']
+        regex: '/(crm_.*)'
+        action: keep
+
+      # Gán nhãn container đầy đủ
+      - source_labels: ['__meta_docker_container_name']
+        regex: '/(.*)'
+        target_label: 'container'
+
+      # Gán nhãn service ngắn gọn (proxy, backend, frontend, db, pgadmin, grafana...)
+      - source_labels: ['__meta_docker_container_name']
+        regex: '/crm_(.*)'
+        target_label: 'service'
+
+      # Gán nhãn job cố định
+      - target_label: 'job'
+        replacement: 'crm_logs'
